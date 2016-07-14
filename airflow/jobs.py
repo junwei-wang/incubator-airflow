@@ -843,6 +843,14 @@ class BackfillJob(BaseJob):
                 session.merge(ti)
         session.commit()
 
+        # clear the downstream of failed tasks
+        for key, ti in list(tasks_to_run.items()):
+            ti.refresh_from_db()
+            if ti.state == State.FAILED:
+                logging.warn('TaskInstance %s is FAILED.' % ti)
+                logging.warn('Clear task instance %s\'s downstream.' % ti)
+                ti.task.clear(start_date=ti.execution_date, end_date=ti.execution_date, downstream=True)
+
         # Triggering what is ready to get triggered
         while tasks_to_run and not deadlocked:
             not_ready.clear()
